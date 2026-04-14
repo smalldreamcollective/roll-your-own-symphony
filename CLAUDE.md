@@ -2,6 +2,22 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Development Workflow
+
+Every change follows the SDC issue-first workflow:
+
+1. **Create an issue** — use `gh issue create` or `./github_issue.sh`
+2. **Start work** — `./start-work.sh <issue-number>` — creates a branch and draft PR
+3. **Make changes** — on the branch; run `cd symphony && mix test` before committing
+4. **Review** — run `/review-pr <number>` before merging
+5. **Merge** — after CI passes and review is clean
+
+Branch naming: `feat/<n>-<slug>`, `fix/<n>-<slug>`, `docs/<n>-<slug>`, `chore/<n>-<slug>`
+
+Conventional commits: `feat:`, `fix:`, `chore:`, `docs:`
+
+Never commit directly to `main`.
+
 ## Implementation
 
 The implementation lives in `symphony/` — an Elixir/OTP application.

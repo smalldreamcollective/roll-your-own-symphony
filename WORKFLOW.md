@@ -1,7 +1,7 @@
 ---
 tracker:
   kind: github
-  repo: mykdawg/roll-your-own-symphony
+  repo: smalldreamcollective/roll-your-own-symphony
   api_key: $GITHUB_TOKEN
   active_states:
     - ready
@@ -16,7 +16,7 @@ workspace:
   root: /tmp/symphony-workspaces/roll-your-own
   hooks:
     after_create: |
-      git clone https://$GITHUB_TOKEN@github.com/mykdawg/roll-your-own-symphony.git .
+      git clone https://$GITHUB_TOKEN@github.com/smalldreamcollective/roll-your-own-symphony.git .
     before_run: |
       git fetch origin
       git pull --rebase origin main || true

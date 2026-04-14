@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    name: mix test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.19.5"
+          otp-version: "28.3"
+
+      - name: Cache deps
+        uses: actions/cache@v4
+        with:
+          path: symphony/deps
+          key: deps-${{ hashFiles('symphony/mix.lock') }}
+          restore-keys: deps-
+
+      - name: Cache build
+        uses: actions/cache@v4
+        with:
+          path: symphony/_build
+          key: build-${{ hashFiles('symphony/mix.lock') }}-${{ hashFiles('symphony/lib/**/*.ex') }}
+          restore-keys: build-
+
+      - name: Install dependencies
+        working-directory: symphony
+        run: mix deps.get
+
+      - name: Compile
+        working-directory: symphony
+        run: mix compile --warnings-as-errors
+
+      - name: Run tests
+        working-directory: symphony
+        run: mix test

@@ -154,6 +154,40 @@ You are a coding agent working on a GitHub issue.
 | `agent.max_concurrent_agents` | `10` | Concurrency limit |
 | `server.port` | — | Port for the status API (optional) |
 
+### Linear example
+
+```yaml
+---
+tracker:
+  kind: linear
+  project_slug: your-project-slug
+  api_key: $LINEAR_API_KEY
+  active_states:
+    - Todo
+    - In Progress
+  terminal_states:
+    - Done
+    - Cancelled
+
+polling:
+  interval_ms: 30000
+
+workspace:
+  root: /tmp/symphony-workspaces
+  hooks:
+    after_create: |
+      git clone https://github.com/your-org/your-repo.git .
+      git checkout -b {{ issue.branch_name }}
+
+agent:
+  kind: ollama
+  model: your-model-name
+  max_turns: 20
+---
+```
+
+To find your project slug: right-click the project in Linear and copy its URL — the slug is the last path segment.
+
 ### GitHub state model
 
 GitHub Issues have no named workflow states. Symphony maps them via labels:
@@ -162,6 +196,65 @@ GitHub Issues have no named workflow states. Symphony maps them via labels:
 - `active_states: ["ready"]` — only open issues with a `ready` label
 - `terminal_states: ["closed"]` — GitHub's native closed state
 - `terminal_states: ["done"]` — issues with a `done` label
+
+### Workspace hooks
+
+Hooks are shell commands run at key points in the workspace lifecycle. The `after_create` hook is the most important — it's where you clone your repo.
+
+| Hook | When | On failure |
+|---|---|---|
+| `after_create` | After workspace directory is created | Fatal — aborts workspace creation |
+| `before_run` | Before each agent turn | Fatal — aborts the run attempt |
+| `after_run` | After each agent turn completes | Logged and ignored |
+| `before_remove` | Before workspace is deleted | Logged and ignored |
+
+Hooks run in a shell with the workspace path as the working directory. Issue fields are available as Liquid variables (e.g. `{{ issue.identifier }}`).
+
+### Template variables
+
+The prompt body is a [Liquid](https://shopify.github.io/liquid/) template. These variables are available:
+
+| Variable | Type | Description |
+|---|---|---|
+| `issue.id` | string | Stable tracker-internal ID |
+| `issue.identifier` | string | Human-readable key (e.g. `#42`, `PROJ-7`) |
+| `issue.title` | string | Issue title |
+| `issue.description` | string or nil | Issue body/description |
+| `issue.state` | string | Current state or label-derived state |
+| `issue.priority` | integer or nil | Priority (lower = higher priority) |
+| `issue.branch_name` | string or nil | Tracker-provided branch name (Linear only) |
+| `issue.url` | string or nil | URL to the issue |
+| `issue.labels` | list of strings | Labels, normalized to lowercase |
+| `issue.created_at` | string or nil | ISO 8601 timestamp |
+| `issue.updated_at` | string or nil | ISO 8601 timestamp |
+| `attempt` | integer or nil | Retry attempt number; absent on first run |
+
+### Agent tools
+
+The agent has access to two tools:
+
+| Tool | Available when | Description |
+|---|---|---|
+| `bash` | Always | Run any shell command in the workspace directory |
+| `github_api` | `tracker.kind: github` | Call the GitHub REST API (GET, POST, PATCH, PUT, DELETE) |
+| `linear_graphql` | `tracker.kind: linear` | Run GraphQL queries/mutations against Linear |
+
+The `github_api` tool prepends `https://api.github.com` automatically, so paths are relative:
+
+```
+POST /repos/owner/repo/issues/42/labels
+GET  /repos/owner/repo/pulls
+```
+
+### GitHub token permissions
+
+For the GitHub Issues tracker, your personal access token needs:
+
+- **Issues** — read and write (to read candidates and apply labels)
+- **Pull requests** — read and write (if the agent opens PRs)
+- **Contents** — read and write (for the workspace clone and push)
+
+A fine-grained PAT scoped to the target repository is recommended over a classic token.
 
 ### Environment variable indirection
 
@@ -221,6 +314,33 @@ tracker:
 
 Issues are written to the `issues/` directory as YAML files and picked up on the next poll. The agent marks an issue done by editing its `state` field to `Done`.
 
+## Development
+
+Run the test suite:
+
+```bash
+cd symphony
+mix test
+```
+
+Run a single test file:
+
+```bash
+mix test test/symphony/config_test.exs
+```
+
+## Known limitations
+
+**Hot-reload on macOS with escript**
+
+The `file_system` library uses a native binary (`mac_listener`) to watch for `WORKFLOW.md` changes. When running as an escript, this binary is not accessible and file watching is silently disabled. Symphony still starts and runs correctly — it just won't pick up `WORKFLOW.md` changes without a restart.
+
+```
+[warning] file_system watcher unavailable, hot-reload disabled
+```
+
+This is expected. Restart Symphony after editing your `WORKFLOW.md`.
+
 ## Status API
 
 When `--port` is set (or `server.port` is configured), a simple status API is available:
@@ -230,3 +350,15 @@ curl http://localhost:4000/api/v1/state
 ```
 
 Returns JSON with running agents, retry queue, token totals, and timestamps.
+
+Individual issue state:
+
+```bash
+curl http://localhost:4000/api/v1/{issue_id}
+```
+
+Trigger an immediate poll without waiting for the next interval:
+
+```bash
+curl -X POST http://localhost:4000/api/v1/refresh
+```

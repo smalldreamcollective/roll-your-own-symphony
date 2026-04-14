@@ -1,0 +1,21 @@
+id: "4"
+identifier: "ISSUE-4"
+title: "Generate a markdown report of prime numbers"
+description: |
+  Write a Python script called primes.py that:
+
+  1. Accepts a command-line argument N (integer)
+  2. Finds all prime numbers up to N using the Sieve of Eratosthenes
+  3. Writes a markdown file called primes_report.md containing:
+     - A heading with the range
+     - The count of primes found
+     - The primes listed in a markdown table (number, index)
+     - The largest prime gap found in the range
+
+  Run the script with N=100 to verify it works. Leave primes.py and
+  primes_report.md in the workspace.
+state: "Done"
+priority: 1
+labels:
+  - test
+  - python

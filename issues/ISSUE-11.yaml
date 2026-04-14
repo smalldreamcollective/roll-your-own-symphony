@@ -1,0 +1,35 @@
+id: "11"
+identifier: "ISSUE-11"
+title: "Build a password strength checker"
+description: |
+  Create a Python script called check_password.py that:
+
+  1. Reads a password from the first command-line argument
+  2. Scores it from 0-100 based on:
+     - Length: 0-25 points (25 pts for 16+ chars, scaled linearly below)
+     - Uppercase letters: 0-15 points (15 pts for 3+)
+     - Lowercase letters: 0-15 points (15 pts for 3+)
+     - Digits: 0-15 points (15 pts for 3+)
+     - Special characters: 0-20 points (20 pts for 3+)
+     - No common patterns (e.g. "123", "abc", "password"): 10 points bonus
+  3. Prints the score, a rating (Weak/Fair/Strong/Excellent), and
+     a short explanation of what's missing
+
+  Also create a file called test_passwords.sh that runs check_password.py
+  against at least 8 passwords covering weak, fair, strong, and excellent cases,
+  and prints the results.
+
+  Run test_passwords.sh and save the output to test_results.txt.
+
+  Before marking Done, verify with bash:
+  - check_password.py exists and is non-empty (wc -c check_password.py)
+  - test_passwords.sh exists and is non-empty (wc -c test_passwords.sh)
+  - test_results.txt exists and is non-empty (wc -c test_results.txt)
+  - The script works: python check_password.py "Hello123!" returns output
+
+  Only mark Done after all checks pass.
+state: "Done"
+priority: 1
+labels:
+  - test
+  - python

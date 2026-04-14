@@ -1,0 +1,64 @@
+---
+# Tracker — choose "github" or "linear"
+tracker:
+  kind: github
+  repo: your-org/your-repo         # owner/repo
+  api_key: $GITHUB_TOKEN           # Personal Access Token or fine-grained PAT
+
+  # Map GitHub labels to Symphony states.
+  # "open" and "closed" are GitHub's native states (no label needed).
+  active_states:
+    - open                          # any open issue; or use label names like "ready"
+  terminal_states:
+    - closed                        # GitHub's native closed state
+
+polling:
+  interval_ms: 60000
+
+workspace:
+  root: ~/symphony_workspaces
+
+agent:
+  model: qwen3:8b
+  ollama_url: http://localhost:11434
+  max_concurrent_agents: 2
+  max_turns: 30
+  stall_timeout_ms: 600000
+
+hooks:
+  after_create: |
+    git clone git@github.com:your-org/your-repo.git .
+  before_run: |
+    git fetch origin
+    git pull --rebase origin main
+
+server:
+  port: 4000
+---
+You are a coding agent working on a GitHub issue.
+
+## Issue
+
+**{{ issue.identifier }}: {{ issue.title }}**
+{% if issue.description %}
+{{ issue.description }}
+{% endif %}
+
+**State:** {{ issue.state }}
+{% if issue.labels %}
+**Labels:** {{ issue.labels | join: ", " }}
+{% endif %}
+{% if attempt %}
+**Note:** This is retry attempt {{ attempt }}. Review any previous work in the workspace before continuing.
+{% endif %}
+
+## Instructions
+
+1. Explore the codebase to understand what needs to change.
+2. Implement the fix or feature described in the issue.
+3. Run the test suite to verify nothing is broken.
+4. Commit your changes with a clear message referencing the issue number.
+5. Use `github_api` to add a comment on the issue summarising what you did,
+   then close the issue.
+
+Work methodically. Do not ask for clarification — use your best judgement.

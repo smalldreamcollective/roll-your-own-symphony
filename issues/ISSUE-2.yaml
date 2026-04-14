@@ -1,0 +1,10 @@
+id: "2"
+identifier: "ISSUE-2"
+title: "Create a hello world shell script"
+description: |
+  Create a file called hello.sh in the workspace that prints "Hello, World!" when run.
+  Make it executable.
+state: "Done"
+priority: 2
+labels:
+  - test

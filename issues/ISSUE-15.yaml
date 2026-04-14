@@ -1,0 +1,15 @@
+id: "15"
+identifier: "ISSUE-15"
+title: "Write a hello world script"
+description: |
+  Create a file called hello.py that prints "Hello, World!" when run.
+
+  Before marking Done, verify with bash:
+  - hello.py exists (wc -c hello.py)
+  - python hello.py outputs "Hello, World!"
+
+  Only mark Done after both checks pass.
+state: "Done"
+priority: 1
+labels:
+  - test

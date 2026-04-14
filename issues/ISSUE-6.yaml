@@ -1,0 +1,22 @@
+id: "6"
+identifier: "ISSUE-6"
+title: "Build a CSV parser and summarizer"
+description: |
+  Create a Python script called csv_summary.py that:
+
+  1. Reads a CSV file path from the first command-line argument
+  2. Detects column types (numeric, date, or string) automatically
+  3. For numeric columns: prints min, max, mean, and standard deviation
+  4. For string columns: prints the count of unique values and the top 3 most frequent
+  5. For date columns (ISO 8601): prints the earliest and latest date
+
+  Also generate a sample CSV file called data.csv with at least 5 columns
+  (mix of numeric, string, and date types) and at least 20 rows of realistic data.
+
+  Run the script against data.csv and save the output to summary.txt.
+  The script must complete without errors.
+state: "Done"
+priority: 1
+labels:
+  - test
+  - python

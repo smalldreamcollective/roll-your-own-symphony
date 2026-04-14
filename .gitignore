@@ -1,0 +1,21 @@
+# Elixir/Mix build artifacts
+symphony/_build/
+symphony/deps/
+symphony/cover/
+symphony/doc/
+symphony/tmp/
+symphony/*.ez
+symphony/symphony-*.tar
+
+# Local secrets and scripts
+symphony/.env
+symphony/start.sh
+symphony/symphony
+
+# Elixir crash dumps
+erl_crash.dump
+
+# Local test artifacts and workspace data
+symphony/artifacts/
+symphony/workspaces/
+symphony/WORKFLOW.md

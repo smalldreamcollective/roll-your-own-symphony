@@ -1,0 +1,20 @@
+id: "3"
+identifier: "ISSUE-3"
+title: "Build a word frequency counter"
+description: |
+  Create a Python script called word_freq.py in the workspace that:
+
+  1. Reads text from stdin
+  2. Counts the frequency of each word (case-insensitive, strip punctuation)
+  3. Prints the top 10 most frequent words and their counts, sorted descending
+
+  Also create a sample input file called sample.txt with at least 3 paragraphs
+  of text (any content you like).
+
+  Finally, run the script against sample.txt to verify it works and include
+  the output in a file called output.txt.
+state: "Done"
+priority: 1
+labels:
+  - test
+  - python

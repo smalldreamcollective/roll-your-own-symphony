@@ -1,0 +1,29 @@
+id: "8"
+identifier: "ISSUE-8"
+title: "Build a file tree visualizer"
+description: |
+  Create a Python script called tree.py that:
+
+  1. Accepts a directory path as the first argument (defaults to current dir)
+  2. Prints a visual tree of the directory structure, like the `tree` command:
+     mydir/
+     ├── file1.txt
+     ├── subdir/
+     │   ├── file2.py
+     │   └── file3.md
+     └── file4.json
+  3. Accepts an optional --depth N argument to limit recursion depth
+  4. Accepts an optional --ext .py,.md argument to filter by file extension
+  5. Prints a summary line at the end: "X directories, Y files"
+
+  Create a sample directory structure called sample_dir/ with at least
+  3 levels of nesting and a mix of file types to test against.
+
+  Run tree.py against sample_dir/ with no filters, then again with
+  --depth 2 and --ext .py,.md. Save all three outputs to results.txt.
+   require the agent to cat the output file to confirm it's non-empty before marking done/
+state: "Done"
+priority: 1
+labels:
+  - test
+  - python

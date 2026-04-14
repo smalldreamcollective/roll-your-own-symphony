@@ -1,0 +1,36 @@
+id: "10"
+identifier: "ISSUE-10"
+title: "Build a Markdown to HTML converter"
+description: |
+  Create a Python script called md2html.py that converts Markdown to HTML
+  using only the standard library (no third-party packages). It must support:
+
+  1. Headings (# H1 through #### H4)
+  2. Bold (**text**) and italic (*text*)
+  3. Unordered lists (- item)
+  4. Ordered lists (1. item)
+  5. Code blocks (``` fenced ```)
+  6. Inline code (`code`)
+  7. Horizontal rules (---)
+  8. Paragraphs (blank-line separated)
+
+  The script reads from stdin and writes HTML to stdout, wrapped in a basic
+  HTML document with a <style> block for readable typography.
+
+  Also create sample.md with content that exercises all 8 features.
+
+  Run: python md2html.py < sample.md > output.html
+
+  Before marking Done, verify with bash:
+  - md2html.py exists and is non-empty (wc -c md2html.py)
+  - sample.md exists and is non-empty (wc -c sample.md)
+  - output.html exists and contains "<h1>" (grep -c "<h1>" output.html)
+  - output.html contains "<ul>" (grep -c "<ul>" output.html)
+  - output.html contains "<code>" (grep -c "<code>" output.html)
+
+  Only mark Done after all checks pass.
+state: "Done"
+priority: 1
+labels:
+  - test
+  - python

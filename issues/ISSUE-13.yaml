@@ -1,0 +1,26 @@
+id: "13"
+identifier: "ISSUE-13"
+title: "Build a number base converter"
+description: |
+  Create a Python script called base_convert.py that:
+
+  1. Accepts three arguments: number, from_base, to_base
+  2. Converts the number from from_base to to_base
+  3. Supports bases 2 through 36 (using 0-9 and a-z)
+  4. Prints the result with a clear label
+
+  Also create test_convert.sh that runs at least 10 conversions
+  covering binary, octal, decimal, hex, and base 36, and saves
+  output to test_results.txt.
+
+  Before marking Done, verify with bash:
+  - base_convert.py exists and is non-empty (wc -c base_convert.py)
+  - test_results.txt exists and is non-empty (wc -c test_results.txt)
+  - python base_convert.py 255 10 16 outputs "ff"
+
+  Only mark Done after all checks pass.
+state: "Done"
+priority: 1
+labels:
+  - test
+  - python

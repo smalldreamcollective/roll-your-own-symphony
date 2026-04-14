@@ -1,7 +1,0 @@
-id: "9"
-identifier: "ISSUE-9"
-title: "Build a log file analyzer"
-state: "Done"
-priority: 1
-labels:
-  - test

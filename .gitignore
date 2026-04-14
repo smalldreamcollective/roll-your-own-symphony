@@ -19,3 +19,6 @@ erl_crash.dump
 symphony/artifacts/
 symphony/workspaces/
 symphony/WORKFLOW.md
+
+# Local issue files (used by local tracker for testing)
+issues/

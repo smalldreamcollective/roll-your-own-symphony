@@ -42,6 +42,17 @@ defmodule Symphony.Tracker.GitHub do
     end
   end
 
+  def apply_cancel_label(cfg, issue_id) do
+    label = Symphony.Config.tracker_cancel_label(cfg)
+    repo = Symphony.Config.tracker_repo(cfg)
+    path = "/repos/#{repo}/issues/#{issue_id}/labels"
+
+    case execute_api_call(cfg, "POST", path, %{"labels" => [label]}) do
+      {:ok, _} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
   def fetch_issue_states_by_ids(cfg, issue_ids) do
     with :ok <- validate_auth(cfg) do
       results =

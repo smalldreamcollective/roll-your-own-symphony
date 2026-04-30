@@ -134,7 +134,8 @@ defmodule Symphony.Server.Router do
           retrying: snapshot.retrying,
           completed: snapshot.completed,
           codex_totals: snapshot.codex_totals,
-          rate_limits: snapshot.rate_limits
+          rate_limits: snapshot.rate_limits,
+          budget: snapshot.budget
         }
 
       {:error, reason} ->
@@ -299,11 +300,37 @@ defmodule Symphony.Server.Router do
             : items.map(i => card(i, status)).join('');
           return `<div class="section"><h2>${title} (${items.length})</h2>${inner}</div>`;
         }
+        function fmtUsd(v) {
+          if (v == null || v === 0) return '$0.00';
+          if (v < 0.01) return '$' + v.toFixed(6);
+          return '$' + v.toFixed(4);
+        }
+        function statsBar(d) {
+          const t = d.codex_totals || {};
+          const b = d.budget || {};
+          const tokens = t.total_tokens || 0;
+          const usd = t.estimated_usd || 0;
+          const maxUsd = b.max_usd;
+          const maxTokens = b.max_tokens;
+          let parts = [
+            `tokens: <span class="val">${tokens.toLocaleString()}</span>`,
+            `est. cost: <span class="val">${fmtUsd(usd)}</span>`,
+          ];
+          if (maxUsd != null) {
+            const pct = maxUsd > 0 ? Math.min(100, (usd / maxUsd) * 100).toFixed(1) : '—';
+            parts.push(`budget: <span class="val">${fmtUsd(usd)} / ${fmtUsd(maxUsd)} (${pct}%)</span>`);
+          }
+          if (maxTokens != null) {
+            parts.push(`token budget: <span class="val">${tokens.toLocaleString()} / ${maxTokens.toLocaleString()}</span>`);
+          }
+          return `<div class="section"><h2>Session</h2><div class="card"><div class="meta">${parts.join(' &nbsp; ')}</div></div></div>`;
+        }
         async function refresh() {
           try {
             const r = await fetch('/api/v1/state');
             const d = await r.json();
             const html = [
+              statsBar(d),
               section('Running', d.running || [], 'running', 'No active agents'),
               section('Retrying', d.retrying || [], 'retrying', 'No pending retries'),
               section('Completed', d.completed || [], 'completed', 'None yet this session'),

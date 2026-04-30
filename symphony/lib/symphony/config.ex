@@ -151,6 +151,24 @@ defmodule Symphony.Config do
     parse_integer(get_in(cfg, ["agent", "stall_timeout_ms"]), @default_stall_timeout_ms)
   end
 
+  def budget_max_tokens(cfg) do
+    parse_integer(get_in(cfg, ["agent", "budget", "max_tokens"]), nil)
+  end
+
+  def budget_max_usd(cfg) do
+    case get_in(cfg, ["agent", "budget", "max_usd"]) do
+      nil -> nil
+      v when is_float(v) -> v
+      v when is_integer(v) -> v * 1.0
+      v when is_binary(v) ->
+        case Float.parse(v) do
+          {f, ""} -> f
+          _ -> nil
+        end
+      _ -> nil
+    end
+  end
+
   # ---------------------------------------------------------------------------
   # Server extension
   # ---------------------------------------------------------------------------

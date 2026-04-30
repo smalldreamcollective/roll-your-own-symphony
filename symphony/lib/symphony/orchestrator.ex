@@ -86,7 +86,8 @@ defmodule Symphony.Orchestrator do
         input_tokens: 0,
         output_tokens: 0,
         total_tokens: 0,
-        seconds_running: 0.0
+        seconds_running: 0.0,
+        estimated_usd: 0.0
       },
       codex_rate_limits: nil
     ]
@@ -209,12 +210,20 @@ defmodule Symphony.Orchestrator do
       |> Map.values()
       |> Enum.sort_by(& &1.completed_at, :desc)
 
+    cfg = effective_cfg()
+
+    budget = %{
+      max_tokens: Symphony.Config.budget_max_tokens(cfg),
+      max_usd: Symphony.Config.budget_max_usd(cfg)
+    }
+
     snapshot = %{
       running: running_rows,
       retrying: retrying_rows,
       completed: completed_rows,
       codex_totals: totals,
-      rate_limits: state.codex_rate_limits
+      rate_limits: state.codex_rate_limits,
+      budget: budget
     }
 
     {:reply, {:ok, snapshot}, state}
@@ -514,26 +523,49 @@ defmodule Symphony.Orchestrator do
   # ---------------------------------------------------------------------------
 
   defp run_dispatch_cycle(state, cfg) do
-    case Symphony.Tracker.fetch_candidate_issues(cfg) do
-      {:error, reason} ->
-        Logger.error("candidate fetch failed reason=#{inspect(reason)}, skipping dispatch")
-        state
+    if budget_exceeded?(state, cfg) do
+      Logger.warning("session budget exceeded — skipping dispatch")
+      state
+    else
+      case Symphony.Tracker.fetch_candidate_issues(cfg) do
+        {:error, reason} ->
+          Logger.error("candidate fetch failed reason=#{inspect(reason)}, skipping dispatch")
+          state
 
-      {:ok, issues} ->
-        sorted = sort_for_dispatch(issues)
+        {:ok, issues} ->
+          sorted = sort_for_dispatch(issues)
 
-        Enum.reduce_while(sorted, state, fn issue, acc ->
-          if available_slots(acc, cfg) == 0 do
-            {:halt, acc}
-          else
-            if should_dispatch?(issue, acc, cfg) do
-              {:cont, dispatch_issue(acc, issue, nil, cfg)}
+          Enum.reduce_while(sorted, state, fn issue, acc ->
+            if available_slots(acc, cfg) == 0 do
+              {:halt, acc}
             else
-              {:cont, acc}
+              if should_dispatch?(issue, acc, cfg) do
+                {:cont, dispatch_issue(acc, issue, nil, cfg)}
+              else
+                {:cont, acc}
+              end
             end
-          end
-        end)
+          end)
+      end
     end
+  end
+
+  defp budget_exceeded?(state, cfg) do
+    totals = state.codex_totals
+
+    token_over =
+      case Symphony.Config.budget_max_tokens(cfg) do
+        nil -> false
+        max -> totals.total_tokens >= max
+      end
+
+    usd_over =
+      case Symphony.Config.budget_max_usd(cfg) do
+        nil -> false
+        max -> (totals.estimated_usd || 0.0) >= max
+      end
+
+    token_over || usd_over
   end
 
   defp sort_for_dispatch(issues) do
@@ -872,6 +904,15 @@ defmodule Symphony.Orchestrator do
     started_ms = DateTime.to_unix(entry.started_at, :millisecond)
     elapsed_s = max(0, (:erlang.system_time(:millisecond) - started_ms) / 1000)
 
+    cfg = effective_cfg()
+    model = Symphony.Config.agent_model(cfg)
+
+    estimated_usd =
+      case Symphony.Pricing.estimate_cost(model, entry.codex_input_tokens, entry.codex_output_tokens) do
+        {:ok, usd} -> usd
+        _ -> 0.0
+      end
+
     state
     |> Map.update!(:running, &Map.delete(&1, issue_id))
     |> Map.update!(:codex_totals, fn totals ->
@@ -880,7 +921,8 @@ defmodule Symphony.Orchestrator do
         | input_tokens: totals.input_tokens + entry.codex_input_tokens,
           output_tokens: totals.output_tokens + entry.codex_output_tokens,
           total_tokens: totals.total_tokens + entry.codex_total_tokens,
-          seconds_running: totals.seconds_running + elapsed_s
+          seconds_running: totals.seconds_running + elapsed_s,
+          estimated_usd: (totals.estimated_usd || 0.0) + estimated_usd
       }
     end)
   end

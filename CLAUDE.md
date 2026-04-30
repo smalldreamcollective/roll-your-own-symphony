@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Every change follows the SDC issue-first workflow:
 
-1. **Create an issue** — use `gh issue create` or `./github_issue.sh`
+1. **Create an issue** — use `gh issue create` or `./new_issue.sh`
 2. **Start work** — `./start-work.sh <issue-number>` — creates a branch and draft PR
 3. **Make changes** — on the branch; run `cd symphony && mix test` before committing
 4. **Review** — run `/review-pr <number>` before merging

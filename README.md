@@ -68,12 +68,30 @@ GITHUB_TOKEN=your_token_here
 Create `symphony/start.sh`:
 
 ```bash
-#!/bin/zsh -l
-cd "$(dirname "$0")"
+#!/usr/bin/env bash
+set -euo pipefail
 
-set -a
-. ./.env
-set +a
+cd "$(cd "$(dirname "$0")" && pwd)"
+
+# Load .env if present
+if [[ -f .env ]]; then
+  set -a
+  source .env
+  set +a
+fi
+
+# --workflow is required. Without it, Symphony falls back to WORKFLOW.md in
+# the current directory — almost certainly the wrong file.
+if ! printf '%s\n' "$@" | grep -q -- '--workflow'; then
+  echo "Error: --workflow is required." >&2
+  echo "" >&2
+  echo "Usage:" >&2
+  echo "  ./start.sh --workflow /path/to/your-repo/WORKFLOW.md [--port PORT]" >&2
+  echo "" >&2
+  echo "Symphony needs to know which WORKFLOW.md to load. Pass the full path" >&2
+  echo "to the WORKFLOW.md in your target repo." >&2
+  exit 1
+fi
 
 mix escript.build --quiet 2>/dev/null
 exec ./symphony "$@"
@@ -271,7 +289,12 @@ tracker:
 ./symphony/start.sh --workflow /path/to/your-repo/WORKFLOW.md --port 4000
 ```
 
-If `--workflow` is omitted, Symphony looks for `WORKFLOW.md` in the current directory.
+**`--workflow` is required.** If omitted, Symphony falls back to `WORKFLOW.md` in
+the current directory. The `symphony/` directory contains its own `WORKFLOW.md`
+(used for local development), so starting from there without the flag silently
+loads the wrong config — Symphony will appear to run but dispatch nothing.
+
+Always pass the full path to the `WORKFLOW.md` in your target repo.
 
 Symphony runs in the foreground and logs to stdout. It will:
 

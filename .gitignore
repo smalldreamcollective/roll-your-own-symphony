@@ -12,8 +12,6 @@ symphony/.env
 symphony/start.sh
 symphony/symphony
 
-# Local dev workflow helpers (machine-specific paths)
-start-work.sh
 
 # Elixir crash dumps
 erl_crash.dump

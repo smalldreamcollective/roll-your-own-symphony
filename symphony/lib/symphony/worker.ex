@@ -17,7 +17,7 @@ defmodule Symphony.Worker do
   @doc """
   Run the agent attempt. This function is the task body — it blocks until done.
   """
-  def run(issue, attempt, cfg, notify_fn) do
+  def run(issue, attempt, cfg, notify_fn, opts \\ []) do
     Logger.info(
       "worker starting issue_id=#{issue.id} issue_identifier=#{issue.identifier} attempt=#{inspect(attempt)}"
     )
@@ -31,11 +31,11 @@ defmodule Symphony.Worker do
         {:error, {:workspace_error, reason}}
 
       {:ok, workspace} ->
-        run_with_workspace(issue, attempt, workspace, cfg, notify_fn)
+        run_with_workspace(issue, attempt, workspace, cfg, notify_fn, opts)
     end
   end
 
-  defp run_with_workspace(issue, attempt, workspace, cfg, notify_fn) do
+  defp run_with_workspace(issue, attempt, workspace, cfg, notify_fn, opts) do
     case Symphony.WorkspaceManager.run_hook(:before_run, cfg, workspace.path) do
       {:error, reason} ->
         Logger.error(
@@ -45,7 +45,7 @@ defmodule Symphony.Worker do
         {:error, {:before_run_hook_failed, reason}}
 
       :ok ->
-        result = Symphony.AgentRunner.run(issue, attempt, workspace.path, cfg, notify_fn)
+        result = Symphony.AgentRunner.run(issue, attempt, workspace.path, cfg, notify_fn, opts)
         Symphony.WorkspaceManager.run_hook_best_effort(:after_run, cfg, workspace.path)
         result
     end

@@ -8,8 +8,8 @@ defmodule Symphony.AgentRunner do
     claude  — Anthropic Claude API
   """
 
-  def run(issue, attempt, workspace_path, cfg, notify_fn) do
-    adapter(cfg).run(issue, attempt, workspace_path, cfg, notify_fn)
+  def run(issue, attempt, workspace_path, cfg, notify_fn, opts \\ []) do
+    adapter(cfg).run(issue, attempt, workspace_path, cfg, notify_fn, opts)
   end
 
   defp adapter(cfg) do

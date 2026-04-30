@@ -27,7 +27,7 @@ defmodule Symphony.Agent.Claude do
   # Public API
   # ---------------------------------------------------------------------------
 
-  def run(issue, attempt, workspace_path, cfg, notify_fn) do
+  def run(issue, attempt, workspace_path, cfg, notify_fn, _opts \\ []) do
     model = cfg_model(cfg)
     api_key = cfg_api_key(cfg)
     max_turns = Symphony.Config.max_turns(cfg)

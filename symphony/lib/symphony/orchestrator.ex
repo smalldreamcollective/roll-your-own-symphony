@@ -56,6 +56,19 @@ defmodule Symphony.Orchestrator do
     ]
   end
 
+  defmodule SuspendedEntry do
+    defstruct [
+      :issue_id,
+      :identifier,
+      :issue,
+      :suspended_at,
+      :reason,
+      :turn_count,
+      :retry_attempt,
+      tokens: %{input: 0, output: 0, total: 0}
+    ]
+  end
+
   defmodule State do
     defstruct [
       :poll_interval_ms,
@@ -64,6 +77,8 @@ defmodule Symphony.Orchestrator do
       running: %{},
       claimed: MapSet.new(),
       retry_attempts: %{},
+      suspended: %{},
+      chat_queues: %{},
       completed: %{},
       pending_completion: %{},
       codex_totals: %{
@@ -424,6 +439,7 @@ defmodule Symphony.Orchestrator do
         state
         |> remove_running(issue_id, entry)
         |> Map.update!(:claimed, &MapSet.delete(&1, issue_id))
+        |> Map.update!(:chat_queues, &Map.delete(&1, issue_id))
         |> Map.update!(:completed, &Map.put(&1, entry.identifier, completed_entry))
     end
   end
@@ -525,9 +541,12 @@ defmodule Symphony.Orchestrator do
       send(orchestrator, {:codex_event, issue.id, event})
     end
 
+    resume_messages = Map.get(state.chat_queues, issue.id)
+    opts = if resume_messages, do: [resume_messages: resume_messages], else: []
+
     worker_pid =
       spawn(fn ->
-        Symphony.Worker.run(issue, attempt, cfg, notify_fn)
+        Symphony.Worker.run(issue, attempt, cfg, notify_fn, opts)
       end)
 
     ref = Process.monitor(worker_pid)
@@ -644,6 +663,7 @@ defmodule Symphony.Orchestrator do
           state
           |> Map.update!(:claimed, &MapSet.delete(&1, retry_entry.issue_id))
           |> Map.update!(:pending_completion, &Map.delete(&1, retry_entry.issue_id))
+          |> Map.update!(:chat_queues, &Map.delete(&1, retry_entry.issue_id))
           |> Map.update!(:completed, &Map.put(&1, retry_entry.identifier, completed_entry))
         else
           if available_slots(state, cfg) == 0 do
@@ -663,6 +683,15 @@ defmodule Symphony.Orchestrator do
   # ---------------------------------------------------------------------------
 
   defp apply_codex_event(state, issue_id, event) do
+    state =
+      case event[:event] || event["event"] do
+        "chat_snapshot" ->
+          messages = event[:messages] || event["messages"]
+          if messages, do: Map.update!(state, :chat_queues, &Map.put(&1, issue_id, messages)), else: state
+        _ ->
+          state
+      end
+
     case Map.get(state.running, issue_id) do
       nil ->
         state

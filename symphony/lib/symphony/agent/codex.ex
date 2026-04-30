@@ -31,7 +31,7 @@ defmodule Symphony.Agent.Codex do
   # Public API
   # ---------------------------------------------------------------------------
 
-  def run(issue, attempt, workspace_path, cfg, notify_fn) do
+  def run(issue, attempt, workspace_path, cfg, notify_fn, _opts \\ []) do
     workflow = Symphony.WorkflowLoader.get()
     prompt_template = case workflow do
       {:ok, %{prompt_template: pt}} -> pt

@@ -24,36 +24,48 @@ defmodule Symphony.Agent.Ollama do
   # Public API
   # ---------------------------------------------------------------------------
 
-  def run(issue, attempt, workspace_path, cfg, notify_fn) do
+  def run(issue, attempt, workspace_path, cfg, notify_fn, opts \\ []) do
     model = cfg_model(cfg)
     ollama_url = cfg_url(cfg)
     max_turns = Symphony.Config.max_turns(cfg)
 
-    workflow = Symphony.WorkflowLoader.get()
-    prompt_template = case workflow do
-      {:ok, %{prompt_template: pt}} -> pt
-      _ -> nil
-    end
+    notify_fn.(%{
+      event: "session_started",
+      timestamp: Tools.utc_now(),
+      model: model,
+      issue_id: issue.id,
+      issue_identifier: issue.identifier
+    })
 
-    case Symphony.Prompt.render(prompt_template, issue, attempt) do
+    case build_initial_messages(issue, attempt, workspace_path, cfg, opts) do
       {:error, reason} ->
-        {:error, {:prompt_error, reason}}
+        {:error, reason}
 
-      {:ok, prompt_text} ->
-        notify_fn.(%{
-          event: "session_started",
-          timestamp: Tools.utc_now(),
-          model: model,
-          issue_id: issue.id,
-          issue_identifier: issue.identifier
-        })
-
-        messages = [
-          %{role: "system", content: Tools.system_prompt(workspace_path, cfg)},
-          %{role: "user", content: prompt_text}
-        ]
-
+      {:ok, messages} ->
         loop(messages, workspace_path, cfg, model, ollama_url, max_turns, 0, notify_fn)
+    end
+  end
+
+  defp build_initial_messages(issue, attempt, workspace_path, cfg, opts) do
+    case Keyword.get(opts, :resume_messages) do
+      nil ->
+        workflow = Symphony.WorkflowLoader.get()
+        prompt_template = case workflow do
+          {:ok, %{prompt_template: pt}} -> pt
+          _ -> nil
+        end
+
+        case Symphony.Prompt.render(prompt_template, issue, attempt) do
+          {:error, reason} -> {:error, {:prompt_error, reason}}
+          {:ok, prompt_text} ->
+            {:ok, [
+              %{role: "system", content: Tools.system_prompt(workspace_path, cfg)},
+              %{role: "user", content: prompt_text}
+            ]}
+        end
+
+      saved ->
+        {:ok, saved ++ [%{role: "user", content: "The issue is still open. Please continue working on it — pick up where you left off."}]}
     end
   end
 
@@ -64,6 +76,7 @@ defmodule Symphony.Agent.Ollama do
   defp loop(messages, workspace_path, cfg, model, ollama_url, max_turns, turn, notify_fn) do
     if turn >= max_turns do
       notify_fn.(%{event: "turn_completed", timestamp: Tools.utc_now(), reason: "max_turns"})
+      notify_fn.(%{event: "chat_snapshot", messages: messages})
       :ok
     else
       notify_fn.(%{event: "notification", timestamp: Tools.utc_now(), message: "calling #{model}"})
@@ -97,6 +110,7 @@ defmodule Symphony.Agent.Ollama do
               turn: turn + 1,
               message: String.slice(content, 0, 300)
             })
+            notify_fn.(%{event: "chat_snapshot", messages: messages})
             :ok
           else
             messages =

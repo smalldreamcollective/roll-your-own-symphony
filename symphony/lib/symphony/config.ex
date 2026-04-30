@@ -45,6 +45,10 @@ defmodule Symphony.Config do
     get_in(cfg, ["tracker", "terminal_states"]) || @default_terminal_states
   end
 
+  def tracker_cancel_label(cfg) do
+    get_in(cfg, ["tracker", "cancel_label"]) || "wontfix"
+  end
+
   # ---------------------------------------------------------------------------
   # Polling
   # ---------------------------------------------------------------------------

@@ -76,6 +76,7 @@ defmodule Symphony.Orchestrator do
       :poll_timer_ref,
       running: %{},
       claimed: MapSet.new(),
+      suppressed: MapSet.new(),
       retry_attempts: %{},
       suspended: %{},
       chat_queues: %{},
@@ -110,6 +111,13 @@ defmodule Symphony.Orchestrator do
   def trigger_refresh do
     send(__MODULE__, :tick)
     :ok
+  end
+
+  @doc "Cancel a running worker by issue_id. Kills the worker, suppresses re-dispatch, and applies the cancel label."
+  def cancel_issue(issue_id) do
+    GenServer.call(__MODULE__, {:cancel, issue_id}, 5_000)
+  catch
+    :exit, _ -> {:error, :timeout}
   end
 
   # ---------------------------------------------------------------------------
@@ -210,6 +218,55 @@ defmodule Symphony.Orchestrator do
     }
 
     {:reply, {:ok, snapshot}, state}
+  end
+
+  @impl true
+  def handle_call({:cancel, issue_id}, _from, state) do
+    case Map.get(state.running, issue_id) do
+      nil ->
+        {:reply, {:error, :not_running}, state}
+
+      entry ->
+        Process.demonitor(entry.monitor_ref, [:flush])
+        kill_worker(entry)
+
+        cancelled_entry = %{
+          issue_id: issue_id,
+          identifier: entry.identifier,
+          completed_at: DateTime.to_iso8601(DateTime.utc_now()),
+          turn_count: entry.turn_count,
+          tokens: %{
+            input: entry.codex_input_tokens,
+            output: entry.codex_output_tokens,
+            total: entry.codex_total_tokens
+          },
+          event_log: Enum.reverse(entry.event_log),
+          cancelled: true
+        }
+
+        state =
+          state
+          |> remove_running(issue_id, entry)
+          |> Map.update!(:claimed, &MapSet.delete(&1, issue_id))
+          |> Map.update!(:suppressed, &MapSet.put(&1, issue_id))
+          |> Map.update!(:chat_queues, &Map.delete(&1, issue_id))
+          |> Map.update!(:completed, &Map.put(&1, entry.identifier, cancelled_entry))
+
+        cfg = effective_cfg()
+
+        spawn(fn ->
+          case Symphony.Tracker.apply_cancel_label(cfg, issue_id) do
+            :ok ->
+              Logger.info("cancel label applied issue_id=#{issue_id}")
+            {:error, reason} ->
+              Logger.warning("failed to apply cancel label issue_id=#{issue_id} reason=#{inspect(reason)}")
+          end
+        end)
+
+        Logger.info("cancelled issue_id=#{issue_id} issue_identifier=#{entry.identifier}")
+
+        {:reply, :ok, state}
+    end
   end
 
   @impl true
@@ -512,10 +569,11 @@ defmodule Symphony.Orchestrator do
 
     not_running = not Map.has_key?(state.running, issue.id)
     not_claimed = not MapSet.member?(state.claimed, issue.id)
+    not_suppressed = not MapSet.member?(state.suppressed, issue.id)
 
     blocker_ok = check_blockers(issue, terminal_states)
 
-    has_required && is_active && not is_terminal && not_running && not_claimed && blocker_ok
+    has_required && is_active && not is_terminal && not_running && not_claimed && not_suppressed && blocker_ok
   end
 
   defp check_blockers(issue, terminal_states) do

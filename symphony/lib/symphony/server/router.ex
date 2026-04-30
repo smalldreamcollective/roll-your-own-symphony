@@ -77,6 +77,21 @@ defmodule Symphony.Server.Router do
     end
   end
 
+  post "/api/v1/:issue_id/cancel" do
+    issue_id = conn.params["issue_id"]
+
+    case Symphony.Orchestrator.cancel_issue(issue_id) do
+      :ok ->
+        send_json(conn, 200, %{cancelled: true, issue_id: issue_id})
+
+      {:error, :not_running} ->
+        send_json(conn, 404, %{error: %{code: "not_running", message: "Issue #{issue_id} is not currently running"}})
+
+      {:error, reason} ->
+        send_json(conn, 500, %{error: %{code: "cancel_failed", message: inspect(reason)}})
+    end
+  end
+
   post "/api/v1/refresh" do
     Symphony.Orchestrator.trigger_refresh()
     now = DateTime.to_iso8601(DateTime.utc_now())
@@ -197,6 +212,9 @@ defmodule Symphony.Server.Router do
         .empty { color: #444; font-size: 0.8rem; padding: 0.5rem 0; }
         .log-link { font-size: 0.65rem; color: #555; text-decoration: none; margin-left: 0.75rem; }
         .log-link:hover { color: #888; }
+        .cancel-btn { font-family: ui-monospace, monospace; font-size: 0.65rem; font-weight: bold; color: #ef5350; background: #2a1a1a; border: 1px solid #4a2a2a; border-radius: 3px; padding: 0.1rem 0.5rem; margin-left: 0.75rem; cursor: pointer; text-transform: uppercase; letter-spacing: 0.05em; }
+        .cancel-btn:hover { background: #3a1a1a; border-color: #ef5350; }
+        .badge.cancelled { background: #2a1a1a; color: #ef5350; }
         .log { margin-top: 0.75rem; border-top: 1px solid #2a2a2a; padding-top: 0.5rem; }
         .log-row { font-size: 0.7rem; line-height: 1.7; display: flex; gap: 0.75rem; flex-wrap: wrap; }
         .log-t { color: #444; min-width: 70px; }
@@ -238,16 +256,28 @@ defmodule Symphony.Server.Router do
         function esc(s) {
           return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         }
+        async function cancelIssue(issueId) {
+          if (!confirm('Cancel this agent? The issue will be labelled and suppressed until Symphony restarts.')) return;
+          try {
+            await fetch(`/api/v1/${issueId}/cancel`, {method: 'POST'});
+            refresh();
+          } catch(e) {
+            alert('Cancel request failed: ' + e);
+          }
+        }
         function card(issue, status) {
-          const badge = `<span class="badge ${status}">${status}</span>`;
+          const displayStatus = issue.cancelled ? 'cancelled' : status;
+          const badge = `<span class="badge ${displayStatus}">${displayStatus}</span>`;
           let meta = '';
           if (status === 'running') {
             const id = issue.issue_identifier;
+            const issueId = issue.issue_id;
             meta = `turns: <span class="val">${issue.turn_count}</span> &nbsp; started: <span class="val">${fmt(issue.started_at)}</span> &nbsp; running: <span class="val">${elapsed(issue.started_at)}</span>`;
             const msg = issue.last_message ? `<div class="msg">${issue.last_message}</div>` : '';
             const log = eventLog(issue.event_log);
             const link = `<a class="log-link" href="/api/v1/${id}/log" target="_blank">raw log ↗</a>`;
-            return `<div class="card"><div class="id">${id}${badge}${link}</div><div class="meta">${meta}</div>${msg}${log}</div>`;
+            const cancelBtn = `<button class="cancel-btn" onclick="cancelIssue('${issueId}')">cancel ✕</button>`;
+            return `<div class="card"><div class="id">${id}${badge}${link}${cancelBtn}</div><div class="meta">${meta}</div>${msg}${log}</div>`;
           } else if (status === 'retrying') {
             const id = issue.issue_identifier;
             meta = `attempt: <span class="val">${issue.attempt}</span> &nbsp; due: <span class="val">${fmt(issue.due_at)}</span>`;
@@ -255,10 +285,12 @@ defmodule Symphony.Server.Router do
             return `<div class="card"><div class="id">${id}${badge}</div><div class="meta">${meta}</div></div>`;
           } else {
             const id = issue.identifier;
+            const displayStatus = issue.cancelled ? 'cancelled' : status;
+            const completedBadge = `<span class="badge ${displayStatus}">${displayStatus}</span>`;
             meta = `completed: <span class="val">${fmt(issue.completed_at)}</span> &nbsp; turns: <span class="val">${issue.turn_count}</span> &nbsp; tokens: <span class="val">${issue.tokens?.total ?? 0}</span>`;
             const log = eventLog(issue.event_log);
             const link = `<a class="log-link" href="/api/v1/${id}/log" target="_blank">raw log ↗</a>`;
-            return `<div class="card"><div class="id">${id}${badge}${link}</div><div class="meta">${meta}</div>${log}</div>`;
+            return `<div class="card"><div class="id">${id}${completedBadge}${link}</div><div class="meta">${meta}</div>${log}</div>`;
           }
         }
         function section(title, items, status, emptyMsg) {

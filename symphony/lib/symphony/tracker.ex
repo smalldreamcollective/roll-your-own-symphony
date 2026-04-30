@@ -17,6 +17,17 @@ defmodule Symphony.Tracker do
     adapter(cfg).fetch_issue_states_by_ids(cfg, issue_ids)
   end
 
+  def apply_cancel_label(cfg, issue_id) do
+    case adapter(cfg) do
+      Symphony.Tracker.GitHub ->
+        Symphony.Tracker.GitHub.apply_cancel_label(cfg, issue_id)
+      _ ->
+        require Logger
+        Logger.warning("apply_cancel_label not supported for tracker kind=#{Symphony.Config.tracker_kind(cfg)}")
+        :ok
+    end
+  end
+
   defp adapter(cfg) do
     case Symphony.Config.tracker_kind(cfg) do
       "github" -> Symphony.Tracker.GitHub

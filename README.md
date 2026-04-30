@@ -283,6 +283,42 @@ tracker:
   api_key: $GITHUB_TOKEN
 ```
 
+## Setting up your target repository
+
+Symphony watches a target repository — one that has a `WORKFLOW.md` and the right labels in place. The fastest way to get started is to use the official template:
+
+**[smalldreamcollective/symphony-target-template](https://github.com/smalldreamcollective/symphony-target-template)**
+
+Click **Use this template** on GitHub, or clone it:
+
+```bash
+git clone https://github.com/smalldreamcollective/symphony-target-template.git my-project
+cd my-project
+```
+
+Then run the setup script to create the required labels:
+
+```bash
+chmod +x setup.sh
+./setup.sh
+```
+
+This creates three labels Symphony relies on:
+
+| Label | Purpose |
+|---|---|
+| `ready` | Apply to an issue to queue it for Symphony |
+| `done` | Applied by the agent when work is complete |
+| `wontfix` | Applied when you cancel an agent from the dashboard |
+
+Finally, edit `WORKFLOW.md` in your target repo and fill in the `TODO` values — your `owner/repo`, workspace path, and model. Then point Symphony at it:
+
+```bash
+./symphony/start.sh --workflow /path/to/my-project/WORKFLOW.md --port 4000
+```
+
+Create an issue, apply the `ready` label, and Symphony will pick it up on the next poll.
+
 ## Running
 
 ```bash

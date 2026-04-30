@@ -43,13 +43,25 @@ defmodule Symphony.Tracker.GitHub do
   end
 
   def apply_cancel_label(cfg, issue_id) do
-    label = Symphony.Config.tracker_cancel_label(cfg)
+    cancel_label = Symphony.Config.tracker_cancel_label(cfg)
     repo = Symphony.Config.tracker_repo(cfg)
-    path = "/repos/#{repo}/issues/#{issue_id}/labels"
+    base_path = "/repos/#{repo}/issues/#{issue_id}/labels"
 
-    case execute_api_call(cfg, "POST", path, %{"labels" => [label]}) do
-      {:ok, _} -> :ok
-      {:error, reason} -> {:error, reason}
+    with {:ok, _} <- execute_api_call(cfg, "POST", base_path, %{"labels" => [cancel_label]}) do
+      active_labels =
+        Symphony.Config.tracker_active_states(cfg)
+        |> Enum.reject(&(String.downcase(&1) == "open"))
+
+      Enum.each(active_labels, fn label ->
+        encoded = URI.encode(label)
+        case execute_api_call(cfg, "DELETE", "#{base_path}/#{encoded}") do
+          {:ok, _} -> :ok
+          {:error, reason} ->
+            Logger.warning("failed to remove active label=#{label} issue_id=#{issue_id} reason=#{inspect(reason)}")
+        end
+      end)
+
+      :ok
     end
   end
 
@@ -247,20 +259,24 @@ defmodule Symphony.Tracker.GitHub do
   end
 
   defp derive_state(labels, github_state, cfg) do
-    all_known_states =
-      (Symphony.Config.tracker_active_states(cfg) ++
-         Symphony.Config.tracker_terminal_states(cfg))
+    terminal_known =
+      Symphony.Config.tracker_terminal_states(cfg)
       |> Enum.map(&String.downcase/1)
-      |> Enum.reject(&(&1 == "open" or &1 == "closed"))
+      |> Enum.reject(&(&1 == "closed"))
 
-    # Find the first label that matches a known state
-    matched_label =
-      Enum.find(labels, fn label ->
-        Enum.member?(all_known_states, String.downcase(label))
-      end)
+    active_known =
+      Symphony.Config.tracker_active_states(cfg)
+      |> Enum.map(&String.downcase/1)
+      |> Enum.reject(&(&1 == "open"))
+
+    # Terminal labels take priority — an issue with both "ready" and "wontfix"
+    # is treated as terminal so it is never re-dispatched.
+    matched_terminal = Enum.find(labels, &Enum.member?(terminal_known, String.downcase(&1)))
+    matched_active   = Enum.find(labels, &Enum.member?(active_known,   String.downcase(&1)))
 
     cond do
-      matched_label -> matched_label
+      matched_terminal -> matched_terminal
+      matched_active   -> matched_active
       github_state == "closed" -> "closed"
       true -> "open"
     end

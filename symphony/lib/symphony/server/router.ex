@@ -257,7 +257,7 @@ defmodule Symphony.Server.Router do
           return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         }
         async function cancelIssue(issueId) {
-          if (!confirm('Cancel this agent? The issue will be labelled and suppressed until Symphony restarts.')) return;
+          if (!confirm('Cancel this agent? It will not be re-dispatched until it is manually marked as active again.')) return;
           try {
             await fetch(`/api/v1/${issueId}/cancel`, {method: 'POST'});
             refresh();

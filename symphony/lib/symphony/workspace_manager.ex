@@ -21,9 +21,9 @@ defmodule Symphony.WorkspaceManager do
   # ---------------------------------------------------------------------------
 
   @doc "Create or reuse the workspace for an issue identifier. Runs after_create hook if new."
-  @spec create_for_issue(String.t(), map()) ::
+  @spec create_for_issue(String.t(), map(), map() | nil) ::
           {:ok, workspace()} | {:error, term()}
-  def create_for_issue(identifier, cfg) do
+  def create_for_issue(identifier, cfg, issue \\ nil) do
     workspace_key = sanitize_key(identifier)
     root = Symphony.Config.workspace_root(cfg)
     path = Path.join(root, workspace_key)
@@ -33,7 +33,7 @@ defmodule Symphony.WorkspaceManager do
       workspace = %{path: path, workspace_key: workspace_key, created_now: created_now}
 
       if created_now do
-        case run_hook(:after_create, cfg, path) do
+        case run_hook(:after_create, cfg, path, issue) do
           :ok ->
             {:ok, workspace}
 
@@ -108,21 +108,22 @@ defmodule Symphony.WorkspaceManager do
   # ---------------------------------------------------------------------------
 
   @doc "Run a workspace hook, returning :ok or {:error, reason}."
-  def run_hook(hook_name, cfg, workspace_path) do
+  def run_hook(hook_name, cfg, workspace_path, issue \\ nil) do
     script = hook_script(hook_name, cfg)
 
     if is_nil(script) or String.trim(script) == "" do
       :ok
     else
+      rendered = render_hook_script(script, issue)
       timeout = Symphony.Config.hooks_timeout_ms(cfg)
       Logger.info("running hook hook=#{hook_name} workspace=#{workspace_path}")
-      exec_hook(script, workspace_path, timeout)
+      exec_hook(rendered, workspace_path, timeout)
     end
   end
 
   @doc "Run a hook, logging errors but always returning :ok."
-  def run_hook_best_effort(hook_name, cfg, workspace_path) do
-    case run_hook(hook_name, cfg, workspace_path) do
+  def run_hook_best_effort(hook_name, cfg, workspace_path, issue \\ nil) do
+    case run_hook(hook_name, cfg, workspace_path, issue) do
       :ok ->
         :ok
 
@@ -152,6 +153,34 @@ defmodule Symphony.WorkspaceManager do
   defp hook_script(:before_run, cfg), do: Symphony.Config.hook_before_run(cfg)
   defp hook_script(:after_run, cfg), do: Symphony.Config.hook_after_run(cfg)
   defp hook_script(:before_remove, cfg), do: Symphony.Config.hook_before_remove(cfg)
+
+  defp render_hook_script(script, nil), do: script
+
+  defp render_hook_script(script, issue) do
+    assigns = %{
+      "issue" => %{
+        "id" => issue.id,
+        "identifier" => issue.identifier,
+        "title" => issue.title,
+        "description" => issue.description,
+        "state" => issue.state,
+        "branch_name" => Map.get(issue, :branch_name),
+        "url" => issue.url,
+        "labels" => issue.labels
+      }
+    }
+
+    case Solid.parse(script) do
+      {:ok, template} ->
+        case Solid.render(template, assigns, strict_variables: false, strict_filters: false) do
+          {:ok, result, _} -> IO.iodata_to_binary(result)
+          {:error, _, partial} -> IO.iodata_to_binary(partial)
+        end
+
+      {:error, _} ->
+        script
+    end
+  end
 
   defp ensure_directory(path) do
     case File.stat(path) do

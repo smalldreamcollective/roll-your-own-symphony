@@ -22,7 +22,7 @@ defmodule Symphony.Worker do
       "worker starting issue_id=#{issue.id} issue_identifier=#{issue.identifier} attempt=#{inspect(attempt)}"
     )
 
-    case Symphony.WorkspaceManager.create_for_issue(issue.identifier, cfg) do
+    case Symphony.WorkspaceManager.create_for_issue(issue.identifier, cfg, issue) do
       {:error, reason} ->
         Logger.error(
           "workspace creation failed issue_id=#{issue.id} issue_identifier=#{issue.identifier} reason=#{inspect(reason)}"
@@ -36,7 +36,7 @@ defmodule Symphony.Worker do
   end
 
   defp run_with_workspace(issue, attempt, workspace, cfg, notify_fn, opts) do
-    case Symphony.WorkspaceManager.run_hook(:before_run, cfg, workspace.path) do
+    case Symphony.WorkspaceManager.run_hook(:before_run, cfg, workspace.path, issue) do
       {:error, reason} ->
         Logger.error(
           "before_run hook failed issue_id=#{issue.id} issue_identifier=#{issue.identifier} reason=#{inspect(reason)}"
@@ -46,7 +46,7 @@ defmodule Symphony.Worker do
 
       :ok ->
         result = Symphony.AgentRunner.run(issue, attempt, workspace.path, cfg, notify_fn, opts)
-        Symphony.WorkspaceManager.run_hook_best_effort(:after_run, cfg, workspace.path)
+        Symphony.WorkspaceManager.run_hook_best_effort(:after_run, cfg, workspace.path, issue)
         result
     end
   end

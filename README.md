@@ -319,6 +319,31 @@ Finally, edit `WORKFLOW.md` in your target repo and fill in the `TODO` values �
 
 Create an issue, apply the `ready` label, and Symphony will pick it up on the next poll.
 
+### Customising agent behaviour with `AGENTS.md`
+
+The template ships with an `AGENTS.md` file at the root of the target repo. This is the right place for project-level coding conventions that the agent should follow on every session — things like:
+
+- Which files and directories to never commit (`node_modules/`, `.env`, build artifacts)
+- How to verify what is staged before committing
+- Whether to run tests before pushing
+- PR description format
+
+The WORKFLOW.md prompt instructs the agent to read `AGENTS.md` before starting work. Because `AGENTS.md` lives in the target repo it is versioned alongside the code, visible to human contributors, and can be updated independently of Symphony config.
+
+If you need conventions that are specific to a single issue, put them in the issue description. If they apply to all issues in the project, put them in `AGENTS.md`.
+
+### Handling PR feedback — the re-engagement loop
+
+When an agent creates a PR that needs changes:
+
+1. Comment on the **issue** (not just the PR) describing what needs to change.
+2. Remove the `done` label from the issue and re-apply `ready`.
+3. Symphony will dispatch the agent again on the next poll.
+
+The WORKFLOW.md prompt instructs the agent to check for an existing open PR on its branch at the start of each session and to read any review comments. This means the re-dispatched agent will see both the updated issue and the PR feedback before touching any code.
+
+If the existing PR needs to be replaced entirely, close it before re-dispatching so the agent creates a fresh one. If you want the agent to push additional commits to the same PR, leave it open.
+
 ## Running
 
 ```bash

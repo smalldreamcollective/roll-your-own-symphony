@@ -91,13 +91,28 @@ defmodule Symphony.Config do
   # Hooks
   # ---------------------------------------------------------------------------
 
-  def hook_after_create(cfg), do: get_in(cfg, ["hooks", "after_create"])
-  def hook_before_run(cfg), do: get_in(cfg, ["hooks", "before_run"])
-  def hook_after_run(cfg), do: get_in(cfg, ["hooks", "after_run"])
-  def hook_before_remove(cfg), do: get_in(cfg, ["hooks", "before_remove"])
+  # Support both `workspace.hooks.*` (documented format) and top-level `hooks.*` (spec format).
+  def hook_after_create(cfg) do
+    get_in(cfg, ["workspace", "hooks", "after_create"]) || get_in(cfg, ["hooks", "after_create"])
+  end
+
+  def hook_before_run(cfg) do
+    get_in(cfg, ["workspace", "hooks", "before_run"]) || get_in(cfg, ["hooks", "before_run"])
+  end
+
+  def hook_after_run(cfg) do
+    get_in(cfg, ["workspace", "hooks", "after_run"]) || get_in(cfg, ["hooks", "after_run"])
+  end
+
+  def hook_before_remove(cfg) do
+    get_in(cfg, ["workspace", "hooks", "before_remove"]) ||
+      get_in(cfg, ["hooks", "before_remove"])
+  end
 
   def hooks_timeout_ms(cfg) do
-    raw = get_in(cfg, ["hooks", "timeout_ms"])
+    raw =
+      get_in(cfg, ["workspace", "hooks", "timeout_ms"]) || get_in(cfg, ["hooks", "timeout_ms"])
+
     parsed = parse_integer(raw, @default_hooks_timeout_ms)
     if parsed > 0, do: parsed, else: @default_hooks_timeout_ms
   end
